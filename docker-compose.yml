@@ -1,0 +1,141 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - infrastructure
+
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: public
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql:/var/lib/mysql
+    networks:
+      - infrastructure
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - 5672:5672
+      - 15672:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: password
+    networks:
+      - infrastructure
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - 6379:6379
+    volumes:
+      - redis:/cache:/data
+    networks:
+      - infrastructure
+
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge:1.0.7
+    ports:
+      - "1433:1433"
+    environment:
+      - "ACCEPT_EULA=Y"
+      - "SA_PASSWORD=P@55w0rd"
+      - "MSSQL_PID=Developer"
+    volumes:
+      - sqlserver:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/mssql-tools/bin/sqlcmd",
+          "-Usa",
+          "-PP@55w0rd",
+          "-Q",
+          "select 1",
+        ]
+      interval: 1s
+      retries: 20
+    networks:
+      - infrastructure
+
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+    cap_add:
+      - IPC_LOCK
+    restart: always
+    ports:
+      - 8200:8200
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+    volumes:
+      - vault-file:/vault/file
+    networks:
+      - infrastructure
+
+  eventstore:
+    image: eventstore/eventstore:23.10.0-alpha-arm64v8
+    container_name: eventstore
+    restart: always
+    ports:
+      - 2113:2113
+      - 1113:1113
+    environment:
+      EVENTSTORE_CLUSTER_SIZE: 1
+      EVENTSTORE_RUN_PROJECTIONS: All
+      EVENTSTORE_START_STANDARD_PROJECTIONS: true
+      EVENTSTORE_EXT_TCP_PORT: 1113
+      EVENTSTORE_HTTP_PORT: 2113
+      EVENTSTORE_INSECURE: true
+      EVENTSTORE_ENABLE_EXTERNAL_TCP: true
+      EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP: true
+    volumes:
+      - eventstore-data:/var/lib/eventstore
+      - eventstore-logs:/var/log/eventstore
+    networks:
+      - infrastructure
+
+  sftp:
+    image: atmoz/sftp
+    ports:
+      - 2222:22
+    command: user:password:1001:12345:/storage
+    volumes:
+      - sftp:/storage
+    networks:
+      - infrastructure
+
+networks:
+  infrastructure:
+    driver: bridge
+    name: infrastructure
+
+volumes:
+  mysql:
+  postgres:
+  redis:
+  sqlserver:
+  vault-file:
+  eventstore-data:
+  eventstore-logs:
+  sftp:
